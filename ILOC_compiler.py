@@ -1,5 +1,6 @@
 #!/usr/bin/python
 import argparse
+from ILOC_parser import *
 
 COMPILER_DESCRIPTION = """
 A ILOC compiler for COMP 412 Lab1.
@@ -28,3 +29,10 @@ if __name__ == "__main__":
 		exit() 
 
 	# print arguments.k, arguments.filename
+	parser = ILOCParser(arguments.filename)
+	parser.scan()
+	try:
+		parser.parse()
+	except Exception, ILOCSyntaxError:
+		print ILOCSyntaxError
+		exit()
