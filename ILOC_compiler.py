@@ -12,8 +12,19 @@ FILENAME_HELP = """
 This argument specifies	 the name of he input file. It is a valid Linux pathname 
 elative to the current working directory.
 """
+FILENAME_ERROR = """
+usage: ILOC_compiler.py [-h] k filename
+ILOC_compiler.py: %s
+"""
+
 if __name__ == "__main__":
 	argument_parser = argparse.ArgumentParser(description = COMPILER_DESCRIPTION)
-	argument_parser.add_argument("k", help = K_HELP)
-	argument_parser.add_argument("filename" help = FILENAME_HELP)
-	argument_parser.parse_args()
+	argument_parser.add_argument("k", help = K_HELP, type = int)
+	argument_parser.add_argument("filename", help = FILENAME_HELP, type = file)
+	try:
+		arguments = argument_parser.parse_args()
+	except Exception, IOError:
+		print  FILENAME_ERROR % IOError
+		exit() 
+
+	# print arguments.k, arguments.filename
