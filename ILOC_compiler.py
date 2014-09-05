@@ -30,9 +30,11 @@ if __name__ == "__main__":
 
 	# print arguments.k, arguments.filename
 	parser = ILOCParser(arguments.filename)
-	parser.scan()
 	try:
+		parser.scan()
 		parser.parse()
-	except Exception, ILOCSyntaxError:
-		print ILOCSyntaxError
+	except ILOCSyntaxError, iloc_exception:
+		print iloc_exception
 		exit()
+	except Exception, other_exception:
+		raise other_exception
