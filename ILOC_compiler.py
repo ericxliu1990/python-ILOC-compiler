@@ -17,8 +17,7 @@ FILENAME_ERROR = """
 usage: ILOC_compiler.py [-h] k filename
 ILOC_compiler.py: %s
 """
-
-if __name__ == "__main__":
+def arguments_parse():
 	argument_parser = argparse.ArgumentParser(description = COMPILER_DESCRIPTION)
 	argument_parser.add_argument("k", help = K_HELP, type = int)
 	argument_parser.add_argument("filename", help = FILENAME_HELP, type = file)
@@ -27,14 +26,22 @@ if __name__ == "__main__":
 	except Exception, IOError:
 		print  FILENAME_ERROR % IOError
 		exit() 
-
 	# print arguments.k, arguments.filename
+	return arguments
+
+def main:
+	arguments = arguments_parse()
 	parser = ILOCParser(arguments.filename)
+	parser.scan()
 	try:
-		parser.scan()
 		parser.parse()
 	except ILOCSyntaxError, iloc_exception:
 		print iloc_exception
 		exit()
 	except Exception, other_exception:
 		raise other_exception
+		
+	# print map(str, parser.ir_list)
+
+if __name__ == '__main__':
+	main()
