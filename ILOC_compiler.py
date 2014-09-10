@@ -41,8 +41,8 @@ def main():
 		exit()
 	#except Exception, other_exception:
 	#	raise other_exception
-	#allocator = ILOCAllocator(parser.get_ir_list, arguments.k)
-	#allocator.find_live_ranges()
+	allocator = ILOCAllocator(parser.ir_list, arguments.k)
+	allocator.find_live_ranges()
 	print map(str, parser.ir_list)
 
 if __name__ == '__main__':

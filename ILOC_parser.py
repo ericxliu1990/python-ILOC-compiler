@@ -39,8 +39,8 @@ class ILOCParser():
 		for line_number, a_line in enumerate(self.source_line):
 			#we assume code lines are much greater than empty lines
 			if self.parser_operation_re.match(a_line):
-				new_line_number += 1
 				self._add_ir_list(new_line_number, a_line, line_number)
+				new_line_number += 1
 			elif self.parser_comment_re.match(a_line):
 				pass
 			else:
@@ -56,7 +56,13 @@ class ILOCParser():
 		new_line_list = a_line.split()
 		new_line_list_len = len(new_line_list)
 		if new_line_list_len == 4:
-			self.ir_list.append(Instruction(new_line_number, new_line_list[0], 
+			if new_line_list[0] == "store":
+				self.ir_list.append(Instruction(new_line_number, new_line_list[0], 
+				InstructionType.store,
+				op_one = new_line_list[1], 
+				op_two = new_line_list[3]))
+			else:
+				self.ir_list.append(Instruction(new_line_number, new_line_list[0], 
 				InstructionType.two_op,
 				op_one = new_line_list[1], 
 				op_three = new_line_list[3]))
