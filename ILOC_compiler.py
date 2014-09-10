@@ -29,6 +29,11 @@ def arguments_parse():
 		exit() 
 	# print arguments.k, arguments.filename
 	return arguments
+def save_file(filename, code_list):
+	write_file = open(str(filename).split(".")[0] + "_allocated.i", "w")
+	for a_instruction in code_list:
+		write_file.write(str(a_instruction) + "\n")
+	write_file.close()
 
 def main():
 	arguments = arguments_parse()
@@ -39,11 +44,10 @@ def main():
 	except ILOCSyntaxError, iloc_exception:
 		print iloc_exception
 		exit()
-	#except Exception, other_exception:
-	#	raise other_exception
 	allocator = ILOCAllocator(parser.ir_list, arguments.k)
 	allocator.find_live_ranges()
-	print map(str, parser.ir_list)
+	allocator.local_allocate()
+	save_file(arguments.filename.name, parser.ir_list)
 
 if __name__ == '__main__':
 	main()

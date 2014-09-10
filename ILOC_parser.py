@@ -52,7 +52,7 @@ class ILOCParser():
 	def _add_ir_list(self, new_line_number, a_line, line_number):
 		#really slow version of implementation,
 		#and not clean way to handle three operator instructions
-		a_line = a_line.replace(",", "", 1)
+		a_line = a_line.replace(",", " ", 1)
 		new_line_list = a_line.split()
 		new_line_list_len = len(new_line_list)
 		if new_line_list_len == 4:

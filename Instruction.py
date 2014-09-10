@@ -8,12 +8,13 @@ class Instruction(object):
 		self.index = index
 		self.type = instruction_type
 		self.opcode = opcode
-		self.op_one = {"source" : op_one, "virtual" : None, "physical" : None, "nexttuse" : None}
+		self.op_one = {"source" : op_one, "virtual" : None, "physical" : None, "nextuse" : None}
 		self.op_two = {"source" : op_two, "virtual" : None, "physical" : None, "nextuse": None}
 		self.op_three = {"source" : op_three, "virtual" : None, "physical" : None, "nextuse": None}
 		#no need for next_op as there's no flow control instruction
 		#self.next_op = next_op
-	def __str__(self, str_type = "virtual"):
+	def __str__(self, str_type = "physical"):
+		#print self.op_one["nextuse"], self.op_two["nextuse"], self.op_three["nextuse"]
 		if self.type == InstructionType.three_op:
 			return "%(opcode)s %(op_one)s, %(op_two)s => %(op_three)s" % {
 									"opcode" : self.opcode,
@@ -36,7 +37,7 @@ class Instruction(object):
 							"op_one" : self.op_one[str_type]}
 		if self.type == InstructionType.none_op:
 			return "%(opcode)s" % {"opcode" : self.opcode}
-		print self.type
+		
 
 #helper function 
 #Source: http://stackoverflow.com/questions/36932/how-can-i-represent-an-enum-in-python
