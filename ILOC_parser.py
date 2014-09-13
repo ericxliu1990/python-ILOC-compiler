@@ -25,7 +25,7 @@ class ILOCParser():
 	def __init__(self, source_file):
 		self.source_file = source_file
 		self.source_line = []
-		self.ir_list = []
+		self.instruction_list = []
 		self.parser_operation_re =  re.compile(GRAMMER_OPERATION_RE)
 		self.parser_comment_re =  re.compile(GRAMMER_COMMENT_RE)
 
@@ -39,45 +39,64 @@ class ILOCParser():
 		for line_number, a_line in enumerate(self.source_line):
 			#we assume code lines are much greater than empty lines
 			if self.parser_operation_re.match(a_line):
-				self._add_ir_list(new_line_number, a_line, line_number)
+				self._add_instruction_list(new_line_number, a_line, line_number)
 				new_line_number += 1
 			elif self.parser_comment_re.match(a_line):
 				pass
 			else:
 				raise ILOCSyntaxError(self.source_file, a_line, line_number)
 
-	def get_ir_list(self):
-		return self.ir_list
+	def get_instruction_list(self):
+		return self.instruction_list
 
-	def _add_ir_list(self, new_line_number, a_line, line_number):
+	def print_instruction_list(self):
+		for a_instruction in self.instruction_list:
+			print a_instruction.get_str("source")
+
+	def _add_instruction_list(self, new_line_number, a_line, line_number):
 		#really slow version of implementation,
 		#and not clean way to handle three operator instructions
+		def _operator_allocate(source):
+			if _is_register(source):
+				return {"source" : source, "virtual" : None, "physical" : None, "nextuse" : None}
+			else:
+				return source
+
+		def _is_register(a_register):
+			if not a_register:
+				return False
+			if not a_register.find("r") == -1:
+				return True
+			return False
+
 		a_line = a_line.replace(",", " ", 1)
 		new_line_list = a_line.split()
 		new_line_list_len = len(new_line_list)
 		if new_line_list_len == 4:
 			if new_line_list[0] == "store":
-				self.ir_list.append(Instruction(new_line_number, new_line_list[0], 
+				self.instruction_list.append(Instruction(new_line_number, new_line_list[0], 
 				InstructionType.store,
-				op_one = new_line_list[1], 
-				op_two = new_line_list[3]))
+				op_one =  _operator_allocate(new_line_list[1]),
+				op_two = _operator_allocate(new_line_list[3])))
 			else:
-				self.ir_list.append(Instruction(new_line_number, new_line_list[0], 
+				self.instruction_list.append(Instruction(new_line_number, new_line_list[0], 
 				InstructionType.two_op,
-				op_one = new_line_list[1], 
-				op_three = new_line_list[3]))
+				op_one =_operator_allocate(new_line_list[1]),
+				op_three = _operator_allocate(new_line_list[3])))
 		elif new_line_list_len == 5:
-			self.ir_list.append(Instruction(new_line_number,new_line_list[0], 
+			self.instruction_list.append(Instruction(new_line_number,new_line_list[0], 
 				InstructionType.three_op,
-				op_one = new_line_list[1], 
-				op_two = new_line_list[2], 
-				op_three = new_line_list[4]))
+				op_one = _operator_allocate(new_line_list[1]),
+				op_two = _operator_allocate(new_line_list[2]),
+				op_three = _operator_allocate(new_line_list[4])))
 		elif new_line_list_len == 2:
-			self.ir_list.append(Instruction(new_line_number,new_line_list[0], 
+			self.instruction_list.append(Instruction(new_line_number,new_line_list[0], 
 				InstructionType.one_op,
-				op_one = new_line_list[1]))
+				op_one =_operator_allocate(new_line_list[1])))
 		elif new_line_list_len ==1:
-			self.ir_list.append(Instruction(new_line_number,new_line_list[0])), InstructionType.none_op,
+			self.instruction_list.append(Instruction(new_line_number,new_line_list[0])), InstructionType.none_op,
 		else:
 			print new_line_list
 			raise ILOCSyntaxError(self.source_file, a_line, line_number)
+
+		

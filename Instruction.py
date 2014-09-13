@@ -1,43 +1,98 @@
 """
 
 """
-class Instruction(object):
+class Instruction():
 	"""represent an instruction"""
 	def __init__(self, index, opcode, instruction_type, op_one = None, op_two = None, op_three = None, next_op = None):
-		super(Instruction, self).__init__()
 		self.index = index
 		self.type = instruction_type
 		self.opcode = opcode
-		self.op_one = {"source" : op_one, "virtual" : None, "physical" : None, "nextuse" : None}
-		self.op_two = {"source" : op_two, "virtual" : None, "physical" : None, "nextuse": None}
-		self.op_three = {"source" : op_three, "virtual" : None, "physical" : None, "nextuse": None}
-		#no need for next_op as there's no flow control instruction
-		#self.next_op = next_op
-	def __str__(self, str_type = "physical"):
-		#print self.op_one["nextuse"], self.op_two["nextuse"], self.op_three["nextuse"]
+		self.op_one = op_one
+		self.op_two = op_two
+		self.op_three = op_three
+
+	def get_str(self, reg_type = "physical"):
+		""""""
+		def get_reg_val(op_name, reg_type):
+			if not op_name:
+				raise Exception
+			if isinstance(op_name, dict):
+				return op_name[reg_type]
+			if isinstance(op_name, basestring) or isinstance(op_name, int):
+				return op_name
+			raise Exception
+				
 		if self.type == InstructionType.three_op:
 			return "%(opcode)s %(op_one)s, %(op_two)s => %(op_three)s" % {
 									"opcode" : self.opcode,
-									"op_one" : self.op_one[str_type], 
-									"op_two" : self.op_two[str_type],
-									"op_three" : self.op_three[str_type]}
+									"op_one" : get_reg_val(self.op_one, reg_type), 
+									"op_two" : get_reg_val(self.op_two, reg_type),
+									"op_three" : get_reg_val(self.op_three, reg_type)}
 		if self.type == InstructionType.two_op:
 			return "%(opcode)s %(op_one)s => %(op_three)s" % {
 									"opcode" : self.opcode,
-									"op_one" : self.op_one[str_type], 
-									"op_three" : self.op_three[str_type]}
+									"op_one" : get_reg_val(self.op_one, reg_type), 
+									"op_three" : get_reg_val(self.op_three, reg_type)}
 		if self.type == InstructionType.store:
 			return "%(opcode)s %(op_one)s => %(op_two)s" % {
 									"opcode" : self.opcode,
-									"op_one" : self.op_one[str_type], 
-									"op_two" : self.op_two[str_type]}
+									"op_one" : get_reg_val(self.op_one, reg_type), 
+									"op_two" : get_reg_val(self.op_two, reg_type)}
 		if self.type == InstructionType.one_op:
 			return "%(opcode)s %(op_one)s" % {
 							"opcode" : self.opcode,
-							"op_one" : self.op_one[str_type]}
+							"op_one" : get_reg_val(self.op_one, reg_type)}
 		if self.type == InstructionType.none_op:
 			return "%(opcode)s" % {"opcode" : self.opcode}
-		
+
+	def get_index(self):
+		return self.index
+
+	def set_op_value(self, op_field, value, reg_field = None):
+		if not reg_field:
+			if not isinstance(value, dict):
+				raise Exception
+			if op_field == "op_one":
+				self.op_one = value
+				return
+			if op_field == "op_two":
+				self.op_two =value
+				return
+			if op_field == "op_three":
+				self.op_three = value
+				return
+			raise Exception
+		else:
+			if not isinstance(value, basestring):
+				raise Exception
+			if op_field == "op_one":
+				self.op_one[reg_field] = value
+				return
+			if op_field == "op_two":
+				self.op_two[reg_field] =value
+				return
+			if op_field == "op_three":
+				self.op_three[reg_field] = value
+				return
+			raise Exception
+
+	def get_op(self, op_field, reg_field = None):
+		if not reg_field:
+			if op_field == "op_one":
+				return self.op_one
+			if op_field == "op_two":
+				return self.op_two
+			if op_field == "op_three":
+				return self.op_three
+			raise Exception
+		else:
+			if op_field == "op_one":
+				return self.op_one[reg_field]
+			if op_field == "op_two":
+				return self.op_two[reg_field]
+			if op_field == "op_three":
+				return self.op_three[reg_field]
+			raise Exception
 
 #helper function 
 #Source: http://stackoverflow.com/questions/36932/how-can-i-represent-an-enum-in-python
