@@ -51,7 +51,7 @@ def main():
 	if arguments.k ==2:
 		allocator.special_local_allocate() 
 	allocator.print_instruction()
-	save_file(arguments.filename.name, allocator.instruction_list)
+	# save_file(arguments.filename.name, allocator.instruction_list)
 
 if __name__ == '__main__':
 	main()

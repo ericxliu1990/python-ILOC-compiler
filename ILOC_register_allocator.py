@@ -4,7 +4,7 @@ from Instruction import *
 
 NO_NEXT_USE = -1
 PHYSICAL_REG = {"vr_name" : None, "nextuse": None}
-MEMERY_STACK_ADD = 1000
+MEMERY_STACK_ADD = 32768
 
 class ILOCAllocator():
 	"""docstring for Allocator"""
@@ -45,8 +45,8 @@ class ILOCAllocator():
 			op_two = a_instruction.op_two
 			op_three = a_instruction.op_three
 
-			print "---------------------------------------"
-			print a_instruction.get_str( "virtual") 
+			# print "---------------------------------------"
+			# print a_instruction.get_str( "virtual") 
 
 			if self._is_register(op_one):
 				a_instruction.set_op_value("op_one", self._ensure(op_one["virtual"]), "physical")
@@ -67,7 +67,6 @@ class ILOCAllocator():
 
 	def special_local_allocate(self):
 		SPECIAL_OP_MAP = {"op_one": "pr0", "op_two": "pr1", "op_three" : "pr1"}
-
 		for a_instruction in list(self.instruction_list):
 			self.instruction_counter += 1
 			for op_type in ["op_one", "op_two", "op_three"]:
@@ -75,8 +74,8 @@ class ILOCAllocator():
 					self._special_spill(a_instruction, op_type)
 					a_instruction.set_op_value(op_type, SPECIAL_OP_MAP[op_type], "physical")
 
-			print "***********************"
-			print a_instruction.get_index(), a_instruction.get_str("virtual")
+			# print "***********************"
+			# print a_instruction.get_index(), a_instruction.get_str("virtual")
 
 	def _update(self, operation, index):
 		if operation:
@@ -119,7 +118,7 @@ class ILOCAllocator():
 		new_instruction_one = Instruction("-", "loadI", InstructionType.two_op, 
 						op_one =  self._special_allocate(virtual_reg), 
 						op_three = one_op_three)
-		print "new instruction 1:" , new_instruction_one.get_str()
+		#print "new instruction 1:" , new_instruction_one.get_str()
 		if op_type == "op_one":
 			opcode = "load"
 			two_op_one = get_new_reg(0)
@@ -135,7 +134,7 @@ class ILOCAllocator():
 		new_instruction_two = Instruction("-", opcode,  InstructionType.two_op, 
 						op_one = two_op_one, 
 						op_three = two_op_three)
-		print "new instruction 2: ", new_instruction_two.get_str()
+		# print "new instruction 2: ", new_instruction_two.get_str()
 		if op_type =="op_one" or op_type =="op_two":
 			self.instruction_list.insert(self.instruction_counter -1, new_instruction_one)
 			self.instruction_counter += 1
@@ -146,23 +145,23 @@ class ILOCAllocator():
 			self.instruction_counter += 1
 			self.instruction_list.insert(self.instruction_counter, new_instruction_two)
 			self.instruction_counter += 1
-		self.print_instruction()
+		# self.print_instruction()
 
 	def _special_allocate(self, virtual_reg):
 		for memory_name, memory in self.physical_regs.items():
 			if memory["vr_name"] == virtual_reg:
-				print "find physical_reg_name", memory_name
+				#rint "find physical_reg_name", memory_name
 				return memory_name
 
 		new_memery = {"vr_name" : virtual_reg}
 		new_memery_name = self._get_new_address()
 		self.physical_regs[new_memery_name] = new_memery
-		print virtual_reg, self.physical_regs
+		#print virtual_reg, self.physical_regs
 		return new_memery_name
 
 	def _allocate(self, virtual_reg):
 		if len(self.free_pr_list) > 0:
-			print virtual_reg, self.free_pr_list
+			#print virtual_reg, self.free_pr_list
 			new_physical_reg = {"vr_name" : virtual_reg, "nextuse": None}
 			new_physical_reg_name = self.free_pr_list.pop()
 			self.physical_regs[new_physical_reg_name] = new_physical_reg
@@ -171,13 +170,13 @@ class ILOCAllocator():
 			physical_reg = self._spill(virtual_reg)
 
 	def _free(self, physical_reg_name):
-		print "--->physical_regs:" , self.physical_regs
+		#print "--->physical_regs:" , self.physical_regs
 		self.physical_regs[physical_reg_name] = PHYSICAL_REG
 		self.free_pr_list.append(physical_reg_name)
-		print "<----physical_regs:" , self.physical_regs
+		#print "<----physical_regs:" , self.physical_regs
 
 	def _spill(self, virtual_reg):
-		print self.physical_regs
+		#print self.physical_regs
 		raise Exception
 
 	def _get_new_address(self):
@@ -199,4 +198,4 @@ class ILOCAllocator():
 
 	def print_instruction(self):
 		for a_instruction in self.instruction_list:
-			print a_instruction.get_index(), ": ", a_instruction.get_str()
+			print a_instruction.get_str()
