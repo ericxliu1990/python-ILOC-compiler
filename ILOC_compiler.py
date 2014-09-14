@@ -48,7 +48,7 @@ def main():
 	allocator = ILOCAllocator(parser.get_instruction_list(), arguments.k)
 	allocator.find_live_ranges()
 	if arguments.k >2:
-		allocator.local_allocate()
+		allocator.local_allocate(MEMERY_STACK_ADD)
 	if arguments.k ==2:
 		allocator.special_local_allocate(MEMERY_STACK_ADD) 
 	allocator.print_instruction()

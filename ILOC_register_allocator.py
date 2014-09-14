@@ -25,7 +25,7 @@ class ILOCAllocator():
 					return
 				if self._is_register(operation):
 					if not operation["source"] in sr_to_vr_dict:
-						sr_to_vr_dict[operation["source"]] = "r" + str(len(vr_index))
+						sr_to_vr_dict[operation["source"]] = "vr" + str(len(vr_index))
 						last_used_dict[operation["source"]] = NO_NEXT_USE
 						vr_index.append(None)
 					operation["virtual"] = sr_to_vr_dict[operation["source"]]
@@ -50,14 +50,25 @@ class ILOCAllocator():
 			# print "sr_to_vr" + str(sr_to_vr_dict)
 			# print "LU" + str(last_used_dict)
 
-	def local_allocate(self):
+	def local_allocate(self, memory_address):
 		""""""
 		physical_regs = dict()
+		memory = dict()
 		free_pr_list = list()
-
-		def get_new_physical_reg(vr_name = None):
+		address_counter = list()
+		
+		def get_new_address():
 			""""""
-			return {"vr_name" : vr_name, "nextuse": None}
+			address_counter.append(None)
+			return str(memory_address + 4 * len(address_counter))
+
+		def get_new_memory(virtual_reg):
+			""""""
+			return {"vr_name" : virtual_reg}
+
+		def get_new_physical_reg(virtual_reg = None):
+			""""""
+			return {"vr_name" : virtual_reg, "nextuse": None}
 
 		def init_pyhscial_regs():
 			""""""
@@ -70,22 +81,70 @@ class ILOCAllocator():
 				physical_regs[physical_reg_name]  = get_new_physical_reg()
 				free_pr_list.append(physical_reg_name)
 
+		def insert_spill_instructions(insert_type, physical_reg, memory_name):
+			""""""
+			def get_new_reg(physical_value):
+				""""""
+				if isinstance(physical_value, basestring):
+					return {"physical" : physical_value}
+				else:
+					return {"physical" : "r" + str(physical_value)}
+
+			if insert_type == "spill" :
+				opcode = "store"
+				two_op_one = get_new_reg(physical_reg)
+				one_op_three = two_op_three = get_new_reg(self.physcial_reg_num -1)
+			elif insert_type == "load":
+				opcode = "load"
+				two_op_one = one_op_three = get_new_reg(self.physcial_reg_num -1)
+				two_op_three =  get_new_reg(physical_reg)
+			else:
+				raise Exception
+
+			new_instruction_one = Instruction("-", "loadI", InstructionType.two_op, 
+							op_one =  memory_name, 
+							op_three = one_op_three)
+			new_instruction_two = Instruction("-", opcode,  InstructionType.two_op, 
+						op_one = two_op_one, 
+						op_three = two_op_three)
+			self._instruction_list_insert(self.instruction_counter -1, new_instruction_one)
+			self._instruction_list_insert(self.instruction_counter -1, new_instruction_two)
+
 		def ensure(virtual_reg):
 			""""""
-			#need linear search, really slow
-			for physical_reg_name, physical_reg in physical_regs.items():
-				if physical_reg["vr_name"] == virtual_reg:
-					print "find physical_reg_name", physical_reg_name
-					return physical_reg_name
+			def find_in_physial_regs():
+				#need linear search, really slow
+				for physical_reg_name, physical_reg in physical_regs.items():
+					if physical_reg["vr_name"] == virtual_reg:
+						# print "find physical_reg_name", physical_reg_name, physical_reg
+						return   physical_reg_name
+				return None
+
+			def find_in_memory():
+				#need linear search, really slow
+				for memory_name, a_memory in memory.items():
+					if a_memory["vr_name"] == virtual_reg:
+						# print "find memory", memory_name
+						return  memory_name
+				return None
+
+			physical_reg_name =  find_in_physial_regs()
+			if physical_reg_name:
+				return physical_reg_name
+			memory_name = find_in_memory()
+			if memory_name:
+				physical_reg = allocate(virtual_reg)
+				insert_spill_instructions("load", physical_reg, memory_name)
+				return physical_reg
 			return  allocate(virtual_reg)
 
 		def allocate(virtual_reg):
-			""""""		
-			if len(free_pr_list) > 0:
-				print virtual_reg, free_pr_list
-				new_physical_reg_name = free_pr_list.pop()
-			else:
+			""""""
+			# print "physical_regs: ", physical_regs, free_pr_list
+			# print "memory: ", memory
+			if len(free_pr_list) == 0:
 				new_physical_reg_name = spill(virtual_reg)
+			new_physical_reg_name = free_pr_list.pop()
 			physical_regs[new_physical_reg_name] = get_new_physical_reg(virtual_reg)
 			return new_physical_reg_name
 
@@ -101,27 +160,36 @@ class ILOCAllocator():
 				# a really slow implementatiom
 				max_next_use = 0
 				max_physical_reg_name = None
-				print self.physical_regs
-				for physical_reg_name, a_physical_reg in self.physical_regs.items():
+				max_virtual_reg_name = None
+				for physical_reg_name, a_physical_reg in physical_regs.items():
 					if a_physical_reg["nextuse"] > max_next_use:
 						max_next_use = a_physical_reg["nextuse"]
 						max_physical_reg_name = physical_reg_name
-				return max_physical_reg_name
+						max_virtual_reg_name = a_physical_reg["vr_name"]
+				return max_physical_reg_name, max_virtual_reg_name
 
 			if self.need_spill == False:
 				raise Exception
-			max_next_use = free(get_max_next_use())
-			print max_next_use
-			raise Exception
+			#can be changed to a clever way
+			max_physical_reg_name, max_virtual_reg_name = get_max_next_use()
+			free(max_physical_reg_name)
+			new_memory_name = get_new_address()
+			memory[new_memory_name] = get_new_memory(max_virtual_reg_name)
+			insert_spill_instructions("spill", max_physical_reg_name, new_memory_name)
+			# print "not enough physical_regs spill %(max_next_use)s to memory %(new_memory_name)s" % {
+			# 									"max_next_use" : max_physical_reg_name, 
+			# 									"new_memory_name" : new_memory_name}
+			# print physical_regs
 		
 		init_pyhscial_regs()
-		for a_instruction in self.instruction_list:
+		for a_instruction in list(self.instruction_list):
+			self.instruction_counter += 1
 			op_one = a_instruction.op_one
 			op_two = a_instruction.op_two
 			op_three = a_instruction.op_three
 
-			print "---------------------------------------"
-			print a_instruction.get_str( "virtual") 
+			# print "---------------------------------------"
+			# print a_instruction.get_str( "virtual") 
 
 			if self._is_register(op_one):
 				a_instruction.set_op_value("op_one", ensure(op_one["virtual"]), "physical")
@@ -139,6 +207,7 @@ class ILOCAllocator():
 				physical_regs[op_two["physical"]]["nextuse"] = op_two["nextuse"]
 			if self._is_register(op_three) and op_three["virtual"]:
 				physical_regs[a_instruction.op_three["physical"]]["nextuse"] = op_three["nextuse"]
+
 
 	def special_local_allocate(self, memory_address):
 		""""""
@@ -201,15 +270,12 @@ class ILOCAllocator():
 							op_three = two_op_three)
 			# print "new instruction 2: ", new_instruction_two.get_str()
 			if op_type =="op_one" or op_type =="op_two":
-				self.instruction_list.insert(self.instruction_counter -1, new_instruction_one)
-				self.instruction_counter += 1
-				self.instruction_list.insert(self.instruction_counter -1, new_instruction_two)
-				self.instruction_counter += 1
+				self._instruction_list_insert(self.instruction_counter -1, new_instruction_one)
+				self._instruction_list_insert(self.instruction_counter -1, new_instruction_two)
+
 			if op_type =="op_three":
-				self.instruction_list.insert(self.instruction_counter, new_instruction_one)
-				self.instruction_counter += 1
-				self.instruction_list.insert(self.instruction_counter, new_instruction_two)
-				self.instruction_counter += 1
+				self._instruction_list_insert(self.instruction_counter, new_instruction_one)
+				self._instruction_list_insert(self.instruction_counter, new_instruction_two)
 			# self.print_instruction()
 
 		for a_instruction in list(self.instruction_list):
@@ -221,6 +287,10 @@ class ILOCAllocator():
 
 			# print "***********************"
 			# print a_instruction.get_index(), a_instruction.get_str("virtual")
+
+	def _instruction_list_insert(self, position, new_instruction):
+		self.instruction_list.insert(position, new_instruction)
+		self.instruction_counter += 1
 
 	def _is_register(self, a_register):
 		""""""
