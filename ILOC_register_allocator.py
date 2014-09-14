@@ -211,7 +211,7 @@ class ILOCAllocator():
 
 	def special_local_allocate(self, memory_address):
 		""""""
-		SPECIAL_OP_MAP = {"op_one": "pr0", "op_two": "pr1", "op_three" : "pr1"}
+		SPECIAL_OP_MAP = {"op_one": "r0", "op_two": "r1", "op_three" : "r1"}
 		memory = dict()
 		address_counter = list()
 		

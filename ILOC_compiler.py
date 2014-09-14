@@ -18,7 +18,7 @@ FILENAME_ERROR = """
 usage: ILOC_compiler.py [-h] k filename
 ILOC_compiler.py: %s
 """
-MEMERY_STACK_ADD = 2000
+MEMERY_STACK_ADD = 32764
 def arguments_parse():
 	argument_parser = argparse.ArgumentParser(description = COMPILER_DESCRIPTION)
 	argument_parser.add_argument("k", help = K_HELP, type = int)
@@ -52,7 +52,7 @@ def main():
 	if arguments.k ==2:
 		allocator.special_local_allocate(MEMERY_STACK_ADD) 
 	allocator.print_instruction()
-	# save_file(arguments.filename.name, allocator.instruction_list)
+	save_file(arguments.filename.name, allocator.instruction_list)
 
 if __name__ == '__main__':
 	main()
