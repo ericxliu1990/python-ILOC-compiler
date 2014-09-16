@@ -30,8 +30,7 @@ class ILOCParser():
 		self.parser_comment_re =  re.compile(GRAMMER_COMMENT_RE)
 
 	def scan(self):
-		source_text = self.source_file.read()
-		self.source_line = source_text.split("\n")
+		self.source_line = self.source_file.readlines()
 		self.source_file.close()
 	
 	def parse(self):
