@@ -46,6 +46,7 @@ class Instruction():
 			return "%(opcode)s" % {"opcode" : self.opcode}
 
 	def get_index(self):
+		""""""
 		return self.index
 
 	def set_op_value(self, op_field, value, reg_field = None):

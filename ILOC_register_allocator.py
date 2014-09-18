@@ -13,6 +13,7 @@ class ILOCAllocator():
 		self.physcial_reg_num = physcial_reg_num
 		self.instruction_counter = 0
 		self.need_spill = None
+		self.rematerializable_value = False
 
 	def find_live_ranges(self):
 		""""""
@@ -53,7 +54,9 @@ class ILOCAllocator():
 	def local_allocate(self, memory_address):
 		""""""
 		physical_regs = dict()
-		memory = dict()
+		virtual_to_physical = dict()
+		virtual_to_memory = dict()
+		virtual_to_remat = dict()
 		free_pr_list = list()
 		address_counter = list()
 		
@@ -61,10 +64,6 @@ class ILOCAllocator():
 			""""""
 			address_counter.append(None)
 			return str(memory_address + 4 * len(address_counter))
-
-		def get_new_memory(virtual_reg):
-			""""""
-			return {"vr_name" : virtual_reg}
 
 		def get_new_physical_reg(virtual_reg = None):
 			""""""
@@ -112,44 +111,29 @@ class ILOCAllocator():
 
 		def ensure(virtual_reg):
 			""""""
-			def find_in_physial_regs():
-				#need linear search, really slow
-				for physical_reg_name, physical_reg in physical_regs.items():
-					if physical_reg["vr_name"] == virtual_reg:
-						# print "find physical_reg_name", physical_reg_name, physical_reg
-						return   physical_reg_name
-				return None
+			if virtual_reg in virtual_to_physical:
+				return virtual_to_physical[virtual_reg]
 
-			def find_in_memory():
-				#need linear search, really slow
-				for memory_name, a_memory in memory.items():
-					if a_memory["vr_name"] == virtual_reg:
-						# print "find memory", memory_name
-						return  memory_name
-				return None
-
-			physical_reg_name =  find_in_physial_regs()
-			if physical_reg_name:
-				return physical_reg_name
-			memory_name = find_in_memory()
-			if memory_name:
+			if virtual_reg in virtual_to_memory:
 				physical_reg = allocate(virtual_reg)
-				insert_spill_instructions("load", physical_reg, memory_name)
+				insert_spill_instructions("load", physical_reg, virtual_to_memory[virtual_reg])
 				return physical_reg
 			return  allocate(virtual_reg)
 
 		def allocate(virtual_reg):
 			""""""
 			# print "physical_regs: ", physical_regs, free_pr_list
-			# print "memory: ", memory
+			# print "memory_to_virtual: ", memory_to_virtual
 			if len(free_pr_list) == 0:
 				new_physical_reg_name = spill(virtual_reg)
 			new_physical_reg_name = free_pr_list.pop()
 			physical_regs[new_physical_reg_name] = get_new_physical_reg(virtual_reg)
+			virtual_to_physical[virtual_reg] = new_physical_reg_name
 			return new_physical_reg_name
 
 		def free(physical_reg_name):
 			""""""
+			del virtual_to_physical[physical_regs[physical_reg_name]["vr_name"]]
 			physical_regs[physical_reg_name] = get_new_physical_reg()
 			free_pr_list.append(physical_reg_name)
 
@@ -168,19 +152,35 @@ class ILOCAllocator():
 						max_virtual_reg_name = a_physical_reg["vr_name"]
 				return max_physical_reg_name, max_virtual_reg_name
 
+			def is_clean_value(virtual_reg):
+				""""""
+				return virtual_reg in virtual_to_memory
+
 			if self.need_spill == False:
 				raise Exception
 			#can be changed to a clever way
 			max_physical_reg_name, max_virtual_reg_name = get_max_next_use()
 			free(max_physical_reg_name)
 			new_memory_name = get_new_address()
-			memory[new_memory_name] = get_new_memory(max_virtual_reg_name)
-			insert_spill_instructions("spill", max_physical_reg_name, new_memory_name)
-			# print "not enough physical_regs spill %(max_next_use)s to memory %(new_memory_name)s" % {
+			# memory_to_virtual[new_memory_name] = get_new_memory(max_virtual_reg_name)
+			if self.rematerializable_value:
+				virtual_to_remat[max_virtual_reg_name] =  self.rematerializable_value
+
+			if not is_clean_value(max_virtual_reg_name):
+				virtual_to_memory[max_virtual_reg_name] = new_memory_name
+				insert_spill_instructions("spill", max_physical_reg_name, new_memory_name)
+			# print "not enough physical_regs spill %(max_next_use)s to memory_to_virtual %(new_memory_name)s" % {
 			# 									"max_next_use" : max_physical_reg_name, 
 			# 									"new_memory_name" : new_memory_name}
 			# print physical_regs
-		
+
+		def rematerialization_check(a_instruction):
+			""""""
+			if a_instruction.opcode == "loadI":
+				return a_instruction.op_two
+			else:
+				return False
+
 		init_pyhscial_regs()
 		for a_instruction in list(self.instruction_list):
 			self.instruction_counter += 1
@@ -190,7 +190,7 @@ class ILOCAllocator():
 
 			# print "---------------------------------------"
 			# print a_instruction.get_str( "virtual") 
-
+			self.rematerializable_value = rematerialization_check(a_instruction)
 			if self._is_register(op_one):
 				a_instruction.set_op_value("op_one", ensure(op_one["virtual"]), "physical")
 			if self._is_register(op_two):
@@ -207,12 +207,14 @@ class ILOCAllocator():
 				physical_regs[op_two["physical"]]["nextuse"] = op_two["nextuse"]
 			if self._is_register(op_three) and op_three["virtual"]:
 				physical_regs[a_instruction.op_three["physical"]]["nextuse"] = op_three["nextuse"]
+			self.rematerializable_value = False
 
 
 	def special_local_allocate(self, memory_address):
 		""""""
 		SPECIAL_OP_MAP = {"op_one": "r0", "op_two": "r1", "op_three" : "r1"}
-		memory = dict()
+		memory_to_virtual = dict()
+		virtual_to_memory = dict()
 		address_counter = list()
 		
 		def get_new_address():
@@ -220,21 +222,16 @@ class ILOCAllocator():
 			address_counter.append(None)
 			return memory_address + 4 * len(address_counter)
 
-		def get_new_memory(virtual_reg):
-			""""""
-			return {"vr_name" : virtual_reg}
-
 		def special_allocate(virtual_reg):
 			""""""
-			for memory_name, a_memory in memory.items():
-				if a_memory["vr_name"] == virtual_reg:
-					#rint "find physical_reg_name", memory_name
-					return memory_name
+			if virtual_reg in virtual_to_memory:
+				return virtual_to_memory[virtual_reg]
 
 			new_memory_name = get_new_address()
-			memory[new_memory_name] = get_new_memory(virtual_reg)
+			virtual_to_memory[virtual_reg] = new_memory_name
 			#print virtual_reg, a_memory
 			return new_memory_name
+
 
 		def special_spill(a_instruction, op_type):
 			""""""
