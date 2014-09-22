@@ -14,13 +14,10 @@ class Instruction():
 	def get_str(self, reg_type = "physical"):
 		""""""
 		def get_reg_val(op_name, reg_type):
-			if not op_name:
-				raise Exception
 			if isinstance(op_name, dict):
 				return op_name[reg_type]
-			if isinstance(op_name, basestring) or isinstance(op_name, int):
+			else:
 				return op_name
-			raise Exception
 				
 		if self.type == InstructionType.three_op:
 			return "%(opcode)s %(op_one)s, %(op_two)s => %(op_three)s" % {
@@ -51,8 +48,6 @@ class Instruction():
 
 	def set_op_value(self, op_field, value, reg_field = None):
 		if not reg_field:
-			if not isinstance(value, dict):
-				raise Exception
 			if op_field == "op_one":
 				self.op_one = value
 				return
@@ -64,8 +59,6 @@ class Instruction():
 				return
 			raise Exception
 		else:
-			if not isinstance(value, basestring):
-				raise Exception
 			if op_field == "op_one":
 				self.op_one[reg_field] = value
 				return

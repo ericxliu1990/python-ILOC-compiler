@@ -3,7 +3,7 @@
 from Instruction import *
 from itertools import count
 NO_NEXT_USE = -1
-
+NO_REMAT = -1
 
 class ILOCAllocator():
 	"""docstring for Allocator"""
@@ -13,6 +13,7 @@ class ILOCAllocator():
 		self.physcial_reg_num = physcial_reg_num
 		self.instruction_counter = 0
 		self.need_spill = None
+		self.spill_reg = physcial_reg_num - 1
 		self.rematerializable_value = False
 
 	def find_live_ranges(self):
@@ -35,13 +36,13 @@ class ILOCAllocator():
 				return Exception
 
 		max_live = 0
-		for a_instruction in reversed(self.instruction_list):
-			update(a_instruction.op_three, a_instruction.index)
-			if self._is_register(a_instruction.op_three) and a_instruction.op_three["source"] :
-				del sr_to_vr_dict[a_instruction.op_three["source"]]
-				del last_used_dict[a_instruction.op_three["source"]]
-			update(a_instruction.op_one, a_instruction.index)
-			update(a_instruction.op_two, a_instruction.index)
+		for an_instruction in reversed(self.instruction_list):
+			update(an_instruction.op_three, an_instruction.index)
+			if self._is_register(an_instruction.op_three) and an_instruction.op_three["source"] :
+				del sr_to_vr_dict[an_instruction.op_three["source"]]
+				del last_used_dict[an_instruction.op_three["source"]]
+			update(an_instruction.op_one, an_instruction.index)
+			update(an_instruction.op_two, an_instruction.index)
 			#maintain max_live 
 			max_live = max(max_live, len(sr_to_vr_dict))
 			if max_live > self.physcial_reg_num:
@@ -75,7 +76,7 @@ class ILOCAllocator():
 				physical_reg_num = self.physcial_reg_num
 			else:
 				physical_reg_num = self.physcial_reg_num - 1
-			for index in xrange(physical_reg_num):
+			for index in reversed(xrange(physical_reg_num)):
 				physical_reg_name = "r" + str(index)
 				physical_regs[physical_reg_name]  = get_new_physical_reg()
 				free_pr_list.append(physical_reg_name)
@@ -89,41 +90,59 @@ class ILOCAllocator():
 				else:
 					return {"physical" : "r" + str(physical_value)}
 
-			if insert_type == "spill" :
-				opcode = "store"
-				two_op_one = get_new_reg(physical_reg)
-				one_op_three = two_op_three = get_new_reg(self.physcial_reg_num -1)
-			elif insert_type == "load":
-				opcode = "load"
-				two_op_one = one_op_three = get_new_reg(self.physcial_reg_num -1)
-				two_op_three =  get_new_reg(physical_reg)
-			else:
-				raise Exception
+			if insert_type == "spill" or insert_type == "restore":
+				if insert_type == "spill" :
+					opcode = "store"
+					two_op_one = get_new_reg(physical_reg)
+					one_op_three = two_op_three = get_new_reg(self.spill_reg)
+				elif insert_type == "restore":
+					opcode = "load"
+					two_op_one = one_op_three = get_new_reg(self.spill_reg)
+					two_op_three =  get_new_reg(physical_reg)
+				else:
+					raise Exception
 
-			new_instruction_one = Instruction("-", "loadI", InstructionType.two_op, 
-							op_one =  memory_name, 
-							op_three = one_op_three)
-			new_instruction_two = Instruction("-", opcode,  InstructionType.two_op, 
-						op_one = two_op_one, 
-						op_three = two_op_three)
-			self._instruction_list_insert(self.instruction_counter -1, new_instruction_one)
-			self._instruction_list_insert(self.instruction_counter -1, new_instruction_two)
+				new_instruction_one = Instruction("-", "loadI", InstructionType.two_op, 
+								op_one =  memory_name, 
+								op_three = one_op_three)
+				new_instruction_two = Instruction("-", opcode,  InstructionType.two_op, 
+							op_one = two_op_one, 
+							op_three = two_op_three)
+				self._instruction_list_insert(self.instruction_counter -1, new_instruction_one)
+				self._instruction_list_insert(self.instruction_counter -1, new_instruction_two)
+			if insert_type == "remat_restore":
+				one_op_three =  get_new_reg(physical_reg)
+				new_instruction_one = Instruction("-", "loadI", InstructionType.two_op, 
+								op_one =  memory_name, 
+								op_three = one_op_three)
+				self._instruction_list_insert(self.instruction_counter -1, new_instruction_one)
 
 		def ensure(virtual_reg):
 			""""""
 			if virtual_reg in virtual_to_physical:
 				return virtual_to_physical[virtual_reg]
 
+			# if virtual_reg in virtual_to_remat:
+			# 	if not virtual_to_remat[virtual_reg] == NO_REMAT:
+			# 		physical_reg = allocate(virtual_reg)
+			# 		insert_spill_instructions("remat_restore", physical_reg, virtual_to_remat[virtual_reg])
+			# 		return physical_reg
+					
 			if virtual_reg in virtual_to_memory:
 				physical_reg = allocate(virtual_reg)
-				insert_spill_instructions("load", physical_reg, virtual_to_memory[virtual_reg])
+				insert_spill_instructions("restore", physical_reg, virtual_to_memory[virtual_reg])
 				return physical_reg
+
 			return  allocate(virtual_reg)
 
 		def allocate(virtual_reg):
 			""""""
 			# print "physical_regs: ", physical_regs, free_pr_list
 			# print "memory_to_virtual: ", memory_to_virtual
+			# if not self.rematerializable_value ==NO_REMAT:
+			# 	virtual_to_remat[virtual_reg] =  self.rematerializable_value
+			# 	print "//", virtual_to_remat
+
 			if len(free_pr_list) == 0:
 				new_physical_reg_name = spill(virtual_reg)
 			new_physical_reg_name = free_pr_list.pop()
@@ -162,11 +181,11 @@ class ILOCAllocator():
 			max_physical_reg_name, max_virtual_reg_name = get_max_next_use()
 			free(max_physical_reg_name)
 			new_memory_name = get_new_address()
-			# memory_to_virtual[new_memory_name] = get_new_memory(max_virtual_reg_name)
-			if self.rematerializable_value:
-				virtual_to_remat[max_virtual_reg_name] =  self.rematerializable_value
 
-			if not is_clean_value(max_virtual_reg_name):
+			if not is_clean_value(max_virtual_reg_name): # and self.rematerializable_value == NO_REMAT:
+				# if max_virtual_reg_name in virtual_to_remat:
+				# 	del virtual_to_remat[max_virtual_reg_name]
+				# 	print "// in spill :", virtual_to_remat
 				virtual_to_memory[max_virtual_reg_name] = new_memory_name
 				insert_spill_instructions("spill", max_physical_reg_name, new_memory_name)
 			# print "not enough physical_regs spill %(max_next_use)s to memory_to_virtual %(new_memory_name)s" % {
@@ -174,47 +193,39 @@ class ILOCAllocator():
 			# 									"new_memory_name" : new_memory_name}
 			# print physical_regs
 
-		def rematerialization_check(a_instruction):
-			""""""
-			if a_instruction.opcode == "loadI":
-				return a_instruction.op_two
-			else:
-				return False
-
 		init_pyhscial_regs()
-		for a_instruction in list(self.instruction_list):
+		for an_instruction in list(self.instruction_list):
 			self.instruction_counter += 1
-			op_one = a_instruction.op_one
-			op_two = a_instruction.op_two
-			op_three = a_instruction.op_three
+			op_one = an_instruction.op_one
+			op_two = an_instruction.op_two
+			op_three = an_instruction.op_three
 
 			# print "---------------------------------------"
-			# print a_instruction.get_str( "virtual") 
-			self.rematerializable_value = rematerialization_check(a_instruction)
+			# print an_instruction.get_str( "virtual") 
+			self.rematerializable_value = self._rematerialization_check(an_instruction)
 			if self._is_register(op_one):
-				a_instruction.set_op_value("op_one", ensure(op_one["virtual"]), "physical")
+				an_instruction.set_op_value("op_one", ensure(op_one["virtual"]), "physical")
 			if self._is_register(op_two):
-				a_instruction.set_op_value("op_two", ensure(op_two["virtual"]),  "physical")
+				an_instruction.set_op_value("op_two", ensure(op_two["virtual"]),  "physical")
 			if self._is_register(op_one) and op_one["nextuse"] == NO_NEXT_USE:
-				free(a_instruction.op_one["physical"])
+				free(an_instruction.op_one["physical"])
 			if self._is_register(op_two) and op_two["nextuse"] == NO_NEXT_USE:
-				free(a_instruction.op_two["physical"])
+				free(an_instruction.op_two["physical"])
 			if self._is_register(op_three):
-				a_instruction.set_op_value("op_three", allocate(a_instruction.op_three["virtual"]),  "physical")
+				an_instruction.set_op_value("op_three", allocate(an_instruction.op_three["virtual"]),  "physical")
 			if self._is_register(op_one) and op_one["nextuse"]:
 				physical_regs[op_one["physical"]]["nextuse"] = op_one["nextuse"]
 			if self._is_register(op_two) and op_two["nextuse"]:
 				physical_regs[op_two["physical"]]["nextuse"] = op_two["nextuse"]
 			if self._is_register(op_three) and op_three["virtual"]:
-				physical_regs[a_instruction.op_three["physical"]]["nextuse"] = op_three["nextuse"]
-			self.rematerializable_value = False
-
+				physical_regs[an_instruction.op_three["physical"]]["nextuse"] = op_three["nextuse"]
 
 	def special_local_allocate(self, memory_address):
 		""""""
 		SPECIAL_OP_MAP = {"op_one": "r0", "op_two": "r1", "op_three" : "r1"}
 		memory_to_virtual = dict()
 		virtual_to_memory = dict()
+		virtual_to_remat = dict()
 		address_counter = list()
 		
 		def get_new_address():
@@ -227,15 +238,15 @@ class ILOCAllocator():
 			if virtual_reg in virtual_to_memory:
 				return virtual_to_memory[virtual_reg]
 
+			# if virtual_reg in virtual_to_remat:
+			# 	return virtual_to_remat[virtual_reg]
 			new_memory_name = get_new_address()
 			virtual_to_memory[virtual_reg] = new_memory_name
 			#print virtual_reg, a_memory
 			return new_memory_name
 
-
-		def special_spill(a_instruction, op_type):
+		def special_spill(an_instruction, op_type):
 			""""""
-
 			def get_new_reg(physical_value):
 				""""""
 				return {"physical" : "r" + str(physical_value)}
@@ -244,7 +255,7 @@ class ILOCAllocator():
 				one_op_three = get_new_reg(0)
 			if op_type == "op_two":
 				one_op_three = get_new_reg(1)
-			virtual_reg = a_instruction.get_op(op_type, "virtual")
+			virtual_reg = an_instruction.get_op(op_type, "virtual")
 			new_instruction_one = Instruction("-", "loadI", InstructionType.two_op, 
 							op_one =  special_allocate(virtual_reg), 
 							op_three = one_op_three)
@@ -274,16 +285,32 @@ class ILOCAllocator():
 				self._instruction_list_insert(self.instruction_counter, new_instruction_one)
 				self._instruction_list_insert(self.instruction_counter, new_instruction_two)
 			# self.print_instruction()
+			if op_type =="op_three":
+				if virtual_reg in virtual_to_remat:
+					del virtual_to_remat[virtual_reg]
+					# print "// in spill: ", virtual_to_remat
 
-		for a_instruction in list(self.instruction_list):
+		for an_instruction in list(self.instruction_list):
 			self.instruction_counter += 1
+			# self.rematerializable_value = self._rematerialization_check(an_instruction)
+			# if not self.rematerializable_value == NO_REMAT:
+			# 	virtual_to_remat[an_instruction.op_three["virtual"]] = self.rematerializable_value
+				# print "//", virtual_to_remat
 			for op_type in ["op_one", "op_two", "op_three"]:
-				if self._is_register(a_instruction.get_op(op_type)):
-					special_spill(a_instruction, op_type)
-					a_instruction.set_op_value(op_type, SPECIAL_OP_MAP[op_type], "physical")
+				if self._is_register(an_instruction.get_op(op_type)):
+					# if self.rematerializable_value == NO_REMAT:
+					special_spill(an_instruction, op_type)
+					an_instruction.set_op_value(op_type, SPECIAL_OP_MAP[op_type], "physical")
 
 			# print "***********************"
-			# print a_instruction.get_index(), a_instruction.get_str("virtual")
+			# print an_instruction.get_index(), an_instruction.get_str("virtual")
+
+	def _rematerialization_check(self, an_instruction):
+			""""""
+			if an_instruction.opcode == "loadI":
+				return an_instruction.op_one
+			else:
+				return NO_REMAT
 
 	def _instruction_list_insert(self, position, new_instruction):
 		self.instruction_list.insert(position, new_instruction)
@@ -298,5 +325,5 @@ class ILOCAllocator():
 		return isinstance(immediate, basestring)
 
 	def print_instruction(self):
-		for a_instruction in self.instruction_list:
-			print a_instruction.get_str()
+		for an_instruction in self.instruction_list:
+			print an_instruction.get_str()
