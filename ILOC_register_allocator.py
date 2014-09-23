@@ -85,9 +85,9 @@ class ILOCAllocator():
 			""""""
 			def get_new_reg(physical_value):
 				""""""
-				try:
+				if isinstance(physical_value, basestring):
 					return {"physical" : physical_value}
-				except:
+				else:
 					return {"physical" : "r" + str(physical_value)}
 
 			if insert_type == "spill" or insert_type == "restore":
